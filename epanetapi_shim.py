@@ -1,498 +1,518 @@
 from js import globalThis, Object, Error # Import Error for explicit error construction
 
+# Low-level Python shim for epanet-js library, mimicking EPANET C API function calls.
+# This class directly interacts with the epanet-js objects (epanetJsProject, epanetJsWorkspace)
+# made available on the global JavaScript scope (globalThis).
+# It handles:
+#   - Translation of EPANET C API style calls to epanet-js method calls.
+#   - Basic error code management (self.errcode).
+#   - Conversion of 1-based indices (common in EPANET C API) to 0-based indices (used by epanet-js).
+#   - Mapping of EPANET constants (e.g., for node properties, link properties, quality types)
+#     to the corresponding integer codes expected by epanet-js, where they differ.
 class epanetapi:
-    # Define constants (as used in EPyT)
-    EN_NODECOUNT = 0
-    EN_TANKCOUNT = 1
-    EN_LINKCOUNT = 2
-    EN_PATCOUNT = 3
-    EN_CURVECOUNT = 4
-    EN_CONTROLCOUNT = 5
+    # --- EPANET Object Counts (match EPANET Toolkit codes) ---
+    EN_NODECOUNT = 0      # Number of nodes
+    EN_TANKCOUNT = 1      # Number of tanks and reservoirs
+    EN_LINKCOUNT = 2      # Number of links
+    EN_PATCOUNT = 3       # Number of patterns
+    EN_CURVECOUNT = 4     # Number of curves
+    EN_CONTROLCOUNT = 5   # Number of controls
 
-    # Node types
+    # --- Node Types (match EPANET Toolkit codes, and epanet-js NodeType enum) ---
     EN_JUNCTION = 0
     EN_RESERVOIR = 1
     EN_TANK = 2
     
-    # Node properties
-    # EPANET C API Codes (used by EPyT) on the left, epanet-js NodeProperty enum values on the right for mapping
-    # These are what EPyT expects. The shim will translate to epanet-js codes if different.
-    EN_ELEVATION = 0    # Elevation -> epanet-js NodeProperty.Elevation (value 0)
-    EN_BASEDEMAND = 1   # Base Demand -> epanet-js NodeProperty.BaseDemand (value 1)
-    # EN_PATTERN = 2 (Index of time pattern)
-    EN_EMITTER = 3      # Emitter Coeff -> epanet-js NodeProperty.EmitterCoeff (value 12)
-    EN_INITQUAL = 4     # Initial Quality
-    EN_SOURCEQUAL = 5   # Source Quality
-    EN_SOURCEPAT = 6    # Source Pattern
-    EN_SOURCETYPE = 7   # Source Type
-    EN_TANKLEVEL = 8    # Initial Water Level in Tank
-    # ... other EPyT codes
+    # --- Node Properties ---
+    # These constants represent EPANET Toolkit codes (used by EPyT).
+    # The shim translates these to the codes expected by epanet-js if they differ.
+    # Comments indicate the epanet-js NodeProperty enum value for clarity.
+    EN_ELEVATION = 0    # Node elevation (epanet-js NodeProperty.Elevation = 0)
+    EN_BASEDEMAND = 1   # Node base demand (epanet-js NodeProperty.BaseDemand = 1)
+    # EN_PATTERN = 2      # Index of demand pattern (epanet-js NodeProperty.DemandPattern = 2)
+    EN_EMITTER = 3      # Emitter coefficient (epanet-js NodeProperty.EmitterCoeff = 12)
+    EN_INITQUAL = 4     # Node initial quality (epanet-js NodeProperty.InitialQuality = 3)
+    # EN_SOURCEQUAL = 5   # Source quality (epanet-js NodeProperty.SourceQuality = 4)
+    # EN_SOURCEPAT = 6    # Source pattern index (epanet-js NodeProperty.SourcePattern = 5)
+    # EN_SOURCETYPE = 7   # Source type (epanet-js NodeProperty.SourceType = 6)
+    # EN_TANKLEVEL = 8    # Tank initial water level (epanet-js NodeProperty.InitialWaterLevel = 8)
 
-    # For getting values, we map EPyT codes to epanet-js codes if they differ
-    # For setting values, we also need this mapping.
-    # The param_code in ENgetnodevalue/ENsetnodevalue will be the EPyT code.
+    # For retrieving simulation results (actual computed values):
+    # Note: EPyT uses some of the same constant values for base properties and computed results.
+    # The mapping to specific epanet-js codes is crucial.
+    EN_DEMAND = 0       # Actual computed demand (epanet-js NodeProperty.ActualDemand = 9). EPyT uses 0.
+    EN_HEAD = 1         # Actual computed hydraulic head (epanet-js NodeProperty.Head = 10). EPyT uses 1.
+    EN_PRESSURE = 11    # Actual computed pressure (epanet-js NodeProperty.Pressure = 11). EPyT uses 11.
+    EN_QUALITY = 2      # Actual computed water quality (epanet-js NodeProperty.ActualQuality = 7). EPyT uses 2.
+
+    # Internal mapping for epanet-js NodeProperty codes (used directly in API calls to epanet-js)
+    JS_NODEPROP_ELEVATION = 0
+    JS_NODEPROP_BASEDEMAND = 1
+    JS_NODEPROP_DEMANDPATTERN = 2 
+    JS_NODEPROP_INITIALQUALITY = 3
+    JS_NODEPROP_SOURCEQUALITY = 4
+    JS_NODEPROP_SOURCEPATTERN = 5 
+    JS_NODEPROP_SOURCETYPE = 6    
+    JS_NODEPROP_ACTUALQUALITY = 7 
+    JS_NODEPROP_INITIALWATERLEVEL = 8
+    JS_NODEPROP_ACTUALDEMAND = 9  
+    JS_NODEPROP_HEAD = 10         
+    JS_NODEPROP_PRESSURE = 11     
+    JS_NODEPROP_EMITTER = 12      
     
-    # Subset of epanet-js NodeProperty enum for direct use when no EPyT code maps cleanly,
-    # or for internal consistency with epanet-js.
-    # These are what epanet-js expects for its get/set NodeValue functions.
-    JS_NODEPROP_DEMAND = 0       # Net demand (ActualDemand in epanet-js)
-    JS_NODEPROP_HEAD = 1         # Hydraulic head
-    JS_NODEPROP_PRESSURE = 11    # Pressure
-    EN_QUALITY = 2               # EPyT constant for getting quality (maps to JS_NODEPROP_QUALITY)
-    JS_NODEPROP_QUALITY = 2      # Water quality (ActualQuality in epanet-js)
-    JS_NODEPROP_EMITTER = 12     # Emitter Coefficient (EmitterCoeff in epanet-js)
-
-    # Quality types (match EPANET and epanet-js integer codes)
+    # --- Quality Types (match EPANET and epanet-js integer codes for QualityType) ---
     EN_NONE = 0
-    EN_CHEM = 1 # Not fully implemented in this PoC for setting custom chem
+    EN_CHEM = 1 
     EN_AGE = 2
     EN_TRACE = 3
 
-    # Link properties (from epanet-js LinkProperty)
-    # EPyT codes for Link Properties
-    EN_DIAMETER = 0         # -> epanet-js LinkProperty.Diameter (0)
-    EN_LENGTH = 1           # -> epanet-js LinkProperty.Length (1)
-    EN_ROUGHNESS = 2        # -> epanet-js LinkProperty.Roughness (2)
-    EN_MINORLOSS = 3        # -> epanet-js LinkProperty.MinorLoss (3)
-    # EN_INITSTATUS = 4 (Initial status)
-    # EN_INITSETTING = 5 (Initial setting for pump, valve)
-    # EN_KBULK = 6 (Bulk reaction coeff)
-    # EN_KWALL = 7 (Wall reaction coeff)
+    # --- Link Properties ---
+    # These constants represent EPANET Toolkit codes (used by EPyT).
+    EN_DIAMETER = 0         # Link Diameter (epanet-js LinkProperty.Diameter = 0)
+    EN_LENGTH = 1           # Link Length (epanet-js LinkProperty.Length = 1)
+    EN_ROUGHNESS = 2        # Link Roughness (epanet-js LinkProperty.Roughness = 2)
+    EN_MINORLOSS = 3        # Link Minor Loss Coeff (epanet-js LinkProperty.MinorLoss = 4)
+    # EN_INITSTATUS = 4     # Initial status (epanet-js LinkProperty.InitialStatus = 3)
+    # EN_INITSETTING = 5    # Initial setting (epanet-js LinkProperty.InitialSetting = 5)
+    EN_STATUS = 10          # Actual Link Status (epanet-js LinkProperty.ActualStatus = 6). EPyT uses 10.
+    EN_FLOW = 8             # Actual Link Flow (epanet-js LinkProperty.Flow = 8). EPyT uses 8.
 
-    # Subset of epanet-js LinkProperty enum
-    JS_LINKPROP_FLOW = 8         # Flow rate
-    JS_LINKPROP_VELOCITY = 9     # Flow velocity
-    JS_LINKPROP_HEADLOSS = 10    # Headloss per 1000 units
-    JS_LINKPROP_STATUS = 3       # Link status (0-closed, 1-open) (maps to EPyT's EN_STATUS if that's 10)
-                                 # Note: EPyT's EN_STATUS is 10. epanet-js LinkProperty.Status is 3.
-                                 # This will require mapping in get/setLinkValue.
-
-    # Time parameters
-    EN_DURATION = 0     # Simulation duration
-    EN_HYDSTEP = 1      # Hydraulic time step
-    # ... other time parameters
+    # Internal mapping for epanet-js LinkProperty codes
+    JS_LINKPROP_DIAMETER = 0
+    JS_LINKPROP_LENGTH = 1
+    JS_LINKPROP_ROUGHNESS = 2
+    JS_LINKPROP_INITIALSTATUS = 3 
+    JS_LINKPROP_MINORLOSS = 4
+    JS_LINKPROP_INITIALSETTING = 5 
+    JS_LINKPROP_ACTUALSTATUS = 6   
+    JS_LINKPROP_SETTING = 7      
+    JS_LINKPROP_FLOW = 8         
+    JS_LINKPROP_VELOCITY = 9     
+    JS_LINKPROP_HEADLOSS = 10    
+    
+    # --- Time Parameters (match EPANET Toolkit codes) ---
+    EN_DURATION = 0     # Simulation duration (seconds)
+    EN_HYDSTEP = 1      # Hydraulic time step (seconds)
+    EN_QUALSTEP = 2     # Water quality time step (seconds)
+    EN_REPORTSTEP = 4   # Reporting time step (seconds)
+    EN_STATISTIC = 8    # Type of simulation statistic (used with ENgetstatistic)
 
     def __init__(self, version=2.2, ph=False, customlib=None):
+        """
+        Initializes the epanetapi shim.
+        Connects to the epanet-js Project and Workspace objects expected on globalThis.
+        Args:
+            version (float, optional): Placeholder for EPANET version. Defaults to 2.2. Not actively used.
+            ph (bool, optional): Placeholder for Prolog/Headless mode. Defaults to False. Not actively used.
+            customlib (str, optional): Placeholder for custom library path. Defaults to None. Not actively used.
+        """
         self.errcode = 0
-        self.epanet_js_obj = None
-        self.epanet_js_workspace = None
+        self.epanet_js_obj = None # Will hold globalThis.epanetJsProject
+        self.epanet_js_workspace = None # Will hold globalThis.epanetJsWorkspace
         
         try:
             if hasattr(globalThis, 'epanetJsProject') and hasattr(globalThis, 'epanetJsWorkspace'):
                 self.epanet_js_obj = globalThis.epanetJsProject
                 self.epanet_js_workspace = globalThis.epanetJsWorkspace
-                # print("Python: epanetapi_shim: Successfully connected to epanetJsProject and epanetJsWorkspace.")
             else:
-                # print("Python: epanetapi_shim: epanetJsProject or epanetJsWorkspace not found on globalThis.")
-                # This case should ideally be handled more robustly,
-                # maybe by raising an exception or setting a specific error code.
                 self.errcode = -1 # Indicate an initialization error
         except Exception as e:
+            self.errcode = -1 
             # print(f"Python: epanetapi_shim: Error during __init__: {str(e)}")
-            self.errcode = -1 # Indicate an initialization error
 
-
-    def ENopen(self, inpfile_content, rptfile_path="report.rpt", binfile_path="out.bin"):
-        # print(f"Python: ENopen called with rpt: {rptfile_path}, bin: {binfile_path}")
+    def ENopen(self, inpfile_content_str, rptfile_path_str="report.rpt", binfile_path_str="out.bin"):
+        """
+        Opens an EPANET input file and prepares for simulation.
+        Writes inpfile_content_str to a temporary file in Pyodide's virtual FS, then calls epanet-js open().
+        Args:
+            inpfile_content_str (str): Full content of the INP file.
+            rptfile_path_str (str): Path for the report file (used by epanet-js).
+            binfile_path_str (str): Path for the binary output file (used by epanet-js).
+        Returns:
+            int: Error code (0 if successful).
+        """
         if self.epanet_js_workspace is None or self.epanet_js_obj is None:
-            # print("Python: ENopen: epanet-js objects not initialized.")
-            self.errcode = 1 # Generic error code
-            return self.errcode
-
+            self.errcode = 1; return self.errcode
         try:
-            # epanet-js writeFile returns void, so no direct error check here other than exception
-            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content)
-            # print("Python: ENopen: Successfully wrote to temp_model.inp")
-            
-            # epanet-js open method might return an error code or throw an exception
-            # Based on epanet-js examples, it seems to throw errors or complete.
-            # We'll assume direct calls and catch exceptions.
-            # The open method in epanet-js Project class is just open(inp, rpt, out)
-            self.epanet_js_obj.open("temp_model.inp", rptfile_path, binfile_path)
-            # print("Python: ENopen: Model opened successfully.")
+            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str)
+            self.epanet_js_obj.open("temp_model.inp", rptfile_path_str, binfile_path_str)
             self.errcode = 0
         except Exception as e:
-            # print(f"Python: ENopen: Error during epanet-js operation: {str(e)}")
-            # Try to get a more specific error code if possible, otherwise use a generic one
-            # For now, a generic error code. epanet-js might not provide specific codes easily.
-            self.errcode = 1 # Placeholder for error
+            self.errcode = 1 
         return self.errcode
 
     def ENsolveH(self):
-        # print("Python: ENsolveH called")
-        if self.epanet_js_obj is None:
-            # print("Python: ENsolveH: epanet-js project not initialized.")
-            self.errcode = 1
-            return self.errcode
+        """
+        Runs a complete hydraulic simulation (solveH in epanet-js).
+        Returns:
+            int: Error code from epanet-js (0 if successful).
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
         try:
-            # solveH in epanet-js project returns an error code or 0 for success.
-            error_code = self.epanet_js_obj.solveH()
+            error_code = self.epanet_js_obj.solveH() 
             self.errcode = error_code
-            # print(f"Python: ENsolveH: Simulation solved. epanet-js returned code: {error_code}")
         except Exception as e:
-            # print(f"Python: ENsolveH: Error during epanet-js solveH: {str(e)}")
-            self.errcode = 1 # Placeholder for error
+            self.errcode = 1
         return self.errcode
 
     def ENclose(self):
-        # print("Python: ENclose called")
-        if self.epanet_js_obj is None:
-            # print("Python: ENclose: epanet-js project not initialized.")
-            self.errcode = 1
-            return self.errcode
+        """
+        Closes the EPANET simulation, freeing resources used by epanet-js.
+        Returns:
+            int: Error code from epanet-js (0 if successful).
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
         try:
-            # close in epanet-js project returns an error code or 0.
-            error_code = self.epanet_js_obj.close()
+            error_code = self.epanet_js_obj.close() 
             self.errcode = error_code
-            # print(f"Python: ENclose: Model closed. epanet-js returned code: {error_code}")
         except Exception as e:
-            # print(f"Python: ENclose: Error during epanet-js close: {str(e)}")
-            self.errcode = 1 # Placeholder for error
+            self.errcode = 1
         return self.errcode
 
-    def ENgetcount(self, countcode):
-        # print(f"Python: ENgetcount called with code: {countcode}")
-        if self.epanet_js_obj is None:
-            # print("Python: ENgetcount: epanet-js project not initialized.")
-            self.errcode = 1 
-            return -1 # Return -1 for error as per EPyT's behavior for getcount
-
-        value = -1 # Default error return
+    def ENgetcount(self, countcode_int):
+        """
+        Retrieves the number of specified EPANET components.
+        Args:
+            countcode_int (int): EPANET constant for the component type (e.g., EN_NODECOUNT).
+        Returns:
+            int: Number of components, or -1 on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return -1
+        value = -1
         try:
-            if countcode == self.EN_NODECOUNT:
-                value = self.epanet_js_obj.getNodeCount()
-            elif countcode == self.EN_LINKCOUNT:
-                value = self.epanet_js_obj.getLinkCount()
-            # Add other count codes here if needed (e.g., EN_TANKCOUNT)
-            # else:
-                # print(f"Python: ENgetcount: Unknown countcode {countcode}")
-                # self.errcode = 1 # Or a more specific error for invalid arg
-                # return -1
-            self.errcode = 0 # Success
-            # print(f"Python: ENgetcount: Got value: {value} for code: {countcode}")
+            if countcode_int == self.EN_NODECOUNT: value = self.epanet_js_obj.getNodeCount()
+            elif countcode_int == self.EN_LINKCOUNT: value = self.epanet_js_obj.getLinkCount()
+            elif countcode_int == self.EN_TANKCOUNT: value = self.epanet_js_obj.getTankCount() 
+            elif countcode_int == self.EN_PATCOUNT: value = self.epanet_js_obj.getPatternCount()
+            elif countcode_int == self.EN_CURVECOUNT: value = self.epanet_js_obj.getCurveCount()
+            # EN_CONTROLCOUNT may not be directly available in epanet-js Project API, might need parsing.
+            else: self.errcode = 1; return -1 # Unknown or unsupported countcode
+            self.errcode = 0
         except Exception as e:
-            # print(f"Python: ENgetcount: Error during epanet-js call: {str(e)}")
-            self.errcode = 1 # Placeholder for error
-            value = -1
+            self.errcode = 1; value = -1
         return value
 
-    def ENgeterror(self, errcode_val_from_epyt, max_len=80):
-        # This is a simplified version. EPyT's ENgeterror retrieves a message
-        # from the DLL. Here, we'll just return a generic message based on our internal errcode.
-        # The errcode_val_from_epyt is the one EPyT passes, which might be different from self.errcode
-        # For simplicity, we'll use self.errcode.
-        # print(f"Python: ENgeterror called with errcode_val_from_epyt: {errcode_val_from_epyt}, self.errcode: {self.errcode}")
+    def ENgeterror(self, errcode_val_int, max_len_int=80):
+        """
+        Retrieves the error message for a given error code. Simplified for this shim.
+        Args:
+            errcode_val_int (int): The error code from a previous API call.
+            max_len_int (int): Max length of the message buffer (ignored).
+        Returns:
+            str: Error message.
+        """
+        current_err_to_report = self.errcode if self.errcode !=0 else errcode_val_int
+        if current_err_to_report == 0: return "No error."
+        if current_err_to_report == -1: return "EPANET Shim: Initialization failed (epanet-js objects not found)."
+        # epanet-js usually throws JS Errors, direct EPANET error codes might not be set often.
+        return f"EPANET Shim: An error occurred (code {current_err_to_report}). Operation may have failed."
 
-        if self.errcode == 0:
-            return "No error."
-        elif self.errcode == -1:
-            return "EPANET Shim: Initialization failed (epanet-js objects not found)."
-        # Add more specific messages if self.errcode is set more granularly
-        else:
-            # In a real scenario, you might try to fetch a more detailed error from epanet-js if available
-            # or map epanet-js error codes to EPANET error messages.
-            # For now, a generic error based on the internal code.
-            return f"EPANET Shim: An error occurred (code {self.errcode}). Operation may have failed."
-
-    def ENgetnodeid(self, node_index):
-        # print(f"Python: ENgetnodeid called for index: {node_index}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1
-            return "" # Return empty string on error, EPyT might raise or return None
+    def ENgetnodeid(self, node_index_1_based):
+        """
+        Retrieves the ID string of a node by its 1-based index.
+        Args:
+            node_index_1_based (int): 1-based index of the node.
+        Returns:
+            str: Node ID string, or empty string on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return ""
         try:
-            # Assuming epanet-js has a method like getNodeId(index)
-            # Note: epanet-js indices are typically 0-based, EPANET API is 1-based.
-            # The epanet-js library's Project.getNodeId takes a 0-based index.
-            node_id = self.epanet_js_obj.getNodeId(node_index - 1)
+            node_id_str = self.epanet_js_obj.getNodeId(node_index_1_based - 1) # 0-based for epanet-js
             self.errcode = 0
-            # print(f"Python: ENgetnodeid: Got ID: {node_id}")
-            return node_id
+            return node_id_str
         except Exception as e:
-            # print(f"Python: ENgetnodeid: Error: {str(e)}")
-            self.errcode = 1
-            return ""
+            self.errcode = 1; return ""
 
-    def ENgetcoord(self, node_index):
-        # print(f"Python: ENgetcoord called for index: {node_index}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1
-            return (0.0, 0.0) # Return tuple (0,0) on error, EPyT might raise
+    def ENgetcoord(self, node_index_1_based):
+        """
+        Retrieves X and Y coordinates for a node by its 1-based index.
+        Args:
+            node_index_1_based (int): 1-based index of the node.
+        Returns:
+            tuple: (float, float) for (x, y), or (0.0, 0.0) on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return (0.0, 0.0)
         try:
-            # Assuming epanet-js has getNodeCoordinates(index) returning {x: val, y: val}
-            # The epanet-js library's Project.getNodeCoordinates takes a 0-based index.
-            coords_obj = self.epanet_js_obj.getNodeCoordinates(node_index - 1)
-            # Convert JS object to Python tuple
-            # print(f"Python: ENgetcoord: Got JS coords_obj: {coords_obj}")
-            # Check if coords_obj is not None and has x and y properties
+            coords_obj = self.epanet_js_obj.getNodeCoordinates(node_index_1_based - 1) # 0-based
             if coords_obj and hasattr(coords_obj, 'x') and hasattr(coords_obj, 'y'):
                 self.errcode = 0
                 return (float(coords_obj.x), float(coords_obj.y))
             else:
-                # print(f"Python: ENgetcoord: Invalid coords_obj received: {coords_obj}")
-                self.errcode = 1
-                return (0.0, 0.0)
+                self.errcode = 1; return (0.0, 0.0)
         except Exception as e:
-            # print(f"Python: ENgetcoord: Error: {str(e)}")
-            self.errcode = 1
-            return (0.0, 0.0)
+            self.errcode = 1; return (0.0, 0.0)
 
-    def ENgetnodetype(self, node_index):
-        # print(f"Python: ENgetnodetype called for index: {node_index}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1
-            return -1 # Return -1 for error, consistent with some EPANET API behaviors
+    def ENgetnodetype(self, node_index_1_based):
+        """
+        Retrieves the type of a node (e.g., EN_JUNCTION) by its 1-based index.
+        Args:
+            node_index_1_based (int): 1-based index of the node.
+        Returns:
+            int: Node type code (matching EN_JUNCTION, etc.), or -1 on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return -1
         try:
-            # Assuming epanet-js has getNodeType(index) returning an integer code
-            # The epanet-js library's Project.getNodeType takes a 0-based index.
-            node_type_code = self.epanet_js_obj.getNodeType(node_index - 1)
+            node_type_code_int = self.epanet_js_obj.getNodeType(node_index_1_based - 1) # 0-based
             self.errcode = 0
-            # print(f"Python: ENgetnodetype: Got type code: {node_type_code}")
-            return int(node_type_code) # Ensure it's an int
+            return int(node_type_code_int) # epanet-js NodeType enum matches EPANET codes
         except Exception as e:
-            # print(f"Python: ENgetnodetype: Error: {str(e)}")
-            self.errcode = 1
-            return -1
+            self.errcode = 1; return -1
 
-    def ENgetlinkid(self, link_index):
-        # print(f"Python: ENgetlinkid called for index: {link_index}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1
-            return ""
+    def ENgetlinkid(self, link_index_1_based):
+        """
+        Retrieves the ID string of a link by its 1-based index.
+        Args:
+            link_index_1_based (int): 1-based index of the link.
+        Returns:
+            str: Link ID string, or empty string on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return ""
         try:
-            # Assuming epanet-js has getLinkId(index)
-            # The epanet-js library's Project.getLinkId takes a 0-based index.
-            link_id = self.epanet_js_obj.getLinkId(link_index - 1)
+            link_id_str = self.epanet_js_obj.getLinkId(link_index_1_based - 1) # 0-based
             self.errcode = 0
-            # print(f"Python: ENgetlinkid: Got ID: {link_id}")
-            return link_id
+            return link_id_str
         except Exception as e:
-            # print(f"Python: ENgetlinkid: Error: {str(e)}")
-            self.errcode = 1
-            return ""
+            self.errcode = 1; return ""
 
-    def ENgetlinknodes(self, link_index):
-        # print(f"Python: ENgetlinknodes called for index: {link_index}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1
-            return (0, 0) # Return (0,0) for error, EPANET API usually uses 0 for invalid index
+    def ENgetlinknodes(self, link_index_1_based):
+        """
+        Retrieves the 1-based indices of the start and end nodes of a link.
+        Args:
+            link_index_1_based (int): 1-based index of the link.
+        Returns:
+            tuple: (int, int) for (start_node_idx_1_based, end_node_idx_1_based), or (0,0) on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return (0,0)
         try:
-            # Assuming epanet-js has getLinkNodes(index) returning [fromNodeIdx, toNodeIdx] (0-based)
-            # The epanet-js library's Project.getLinkNodes takes a 0-based index.
-            nodes_array = self.epanet_js_obj.getLinkNodes(link_index - 1)
-            # Convert JS array to Python tuple, and adjust to 1-based indices for EPANET API consistency
-            # print(f"Python: ENgetlinknodes: Got JS nodes_array: {nodes_array}")
-            if nodes_array and hasattr(nodes_array, 'length') and nodes_array.length == 2:
-                # Ensure elements are numbers before adding 1
-                from_node_idx = int(nodes_array[0]) + 1
-                to_node_idx = int(nodes_array[1]) + 1
+            nodes_array_js = self.epanet_js_obj.getLinkNodes(link_index_1_based - 1) # 0-based link, 0-based node indices
+            if nodes_array_js and hasattr(nodes_array_js, 'length') and nodes_array_js.length == 2:
+                from_node_idx_1_based = int(nodes_array_js[0]) + 1
+                to_node_idx_1_based = int(nodes_array_js[1]) + 1
                 self.errcode = 0
-                return (from_node_idx, to_node_idx)
+                return (from_node_idx_1_based, to_node_idx_1_based)
             else:
-                # print(f"Python: ENgetlinknodes: Invalid nodes_array received: {nodes_array}")
-                self.errcode = 1
-                return (0,0)
+                self.errcode = 1; return (0,0)
         except Exception as e:
-            # print(f"Python: ENgetlinknodes: Error: {str(e)}")
-            self.errcode = 1
-            return (0, 0)
+            self.errcode = 1; return (0,0)
 
+    # --- Hydraulic Simulation Functions ---
     def ENopenH(self):
-        # print("Python: ENopenH called")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
-        try:
-            self.epanet_js_obj.openH()
-            self.errcode = 0
-        except Exception as e:
-            # print(f"Python: ENopenH Error: {str(e)}")
-            self.errcode = 1
+        """Opens the hydraulic analysis system."""
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
+        try: self.epanet_js_obj.openH(); self.errcode = 0
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
-    def ENinitH(self, save_flag):
-        # print(f"Python: ENinitH called with save_flag: {save_flag}")
-        # epanet-js initH expects a boolean: true to save results, false otherwise.
-        # EPANET API: 0 = NOSAVE, 1 = SAVE, 2 = SAVE AND INIT (for quality)
-        # We'll map 1 (SAVE) to true, others to false for simplicity here.
-        js_save_flag = True if save_flag == 1 else False
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
+    def ENinitH(self, save_flag_int):
+        """
+        Initializes hydraulic analysis.
+        Args:
+            save_flag_int (int): 0 (NOSAVE) or 1 (SAVE results).
+                                 (EPANET's 2 for SAVE_AND_INIT is treated as SAVE for hydraulics).
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
         try:
+            js_save_flag = True if save_flag_int == 1 else False 
             self.epanet_js_obj.initH(js_save_flag)
             self.errcode = 0
-        except Exception as e:
-            # print(f"Python: ENinitH Error: {str(e)}")
-            self.errcode = 1
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
     def ENrunH(self):
-        # print("Python: ENrunH called")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return -1 # Return -1 for error, time is usually non-negative
+        """
+        Runs a single hydraulic step, advancing simulation time.
+        Returns:
+            float: Current simulation time in seconds, or -1 on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return -1 
         try:
-            current_time = self.epanet_js_obj.runH()
+            current_time_sec = self.epanet_js_obj.runH()
             self.errcode = 0
-            return current_time # Should be current simulation time in seconds
-        except Exception as e:
-            # print(f"Python: ENrunH Error: {str(e)}")
-            self.errcode = 1
-            return -1
+            return current_time_sec 
+        except Exception as e: self.errcode = 1; return -1 
 
     def ENnextH(self):
-        # print("Python: ENnextH called")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return 0 # Return 0 for error, tstep is usually >0
+        """
+        Determines the time until the next hydraulic event.
+        Returns:
+            float: Time to next event in seconds, or 0 if no more events or error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return 0 
         try:
-            time_to_next_event = self.epanet_js_obj.nextH()
+            time_to_next_event_sec = self.epanet_js_obj.nextH()
             self.errcode = 0
-            return time_to_next_event # Should be time to next event in seconds
-        except Exception as e:
-            # print(f"Python: ENnextH Error: {str(e)}")
-            self.errcode = 1
-            return 0
+            return time_to_next_event_sec
+        except Exception as e: self.errcode = 1; return 0 
             
     def ENcloseH(self):
-        # print("Python: ENcloseH called")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
-        try:
-            self.epanet_js_obj.closeH()
-            self.errcode = 0
-        except Exception as e:
-            # print(f"Python: ENcloseH Error: {str(e)}")
-            self.errcode = 1
+        """Closes the hydraulic analysis system."""
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
+        try: self.epanet_js_obj.closeH(); self.errcode = 0
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
-    def ENgetnodevalue(self, node_index, param_code):
-        # print(f"Python: ENgetnodevalue called for node index: {node_index}, param: {param_code}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return 0.0 # Return 0.0 for error
-        try:
-            # epanet-js uses 0-based indexing
-            value = self.epanet_js_obj.getNodeValue(node_index - 1, param_code)
-            self.errcode = 0
-            return float(value)
-        except Exception as e:
-            # print(f"Python: ENgetnodevalue Error: {str(e)}")
-            self.errcode = 1
-            return 0.0
-
-    def ENsetnodevalue(self, node_index, param_code, value):
-        # print(f"Python: ENsetnodevalue called for node index: {node_index}, param: {param_code}, value: {value}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
+    def ENgetnodevalue(self, node_index_1_based, param_code_epyt):
+        """
+        Retrieves the value of a specific node parameter using EPyT/Toolkit param codes.
+        Handles mapping EPyT codes to epanet-js NodeProperty codes.
+        Args:
+            node_index_1_based (int): 1-based index of the node.
+            param_code_epyt (int): EPANET Toolkit constant for the parameter.
+        Returns:
+            float: Value of the parameter, or 0.0 on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return 0.0
         
-        js_param_code = param_code # Default if codes match
-        if param_code == self.EN_EMITTER: # EPyT EN_EMITTER (3)
-            js_param_code = self.JS_NODEPROP_EMITTER # epanet-js NodeProperty.EmitterCoeff (12)
-        elif param_code == self.EN_BASEDEMAND: # EPyT EN_BASEDEMAND (1)
-            js_param_code = 1 # epanet-js NodeProperty.BaseDemand (1) - same
-        # Add other mappings as necessary for other settable EPyT codes
-        # else:
-            # Potentially raise error for unmapped/unsupported param_code for setting
+        js_param_code = -1 
+        if param_code_epyt == self.EN_PRESSURE: js_param_code = self.JS_NODEPROP_PRESSURE
+        elif param_code_epyt == self.EN_HEAD: js_param_code = self.JS_NODEPROP_HEAD
+        elif param_code_epyt == self.EN_QUALITY: js_param_code = self.JS_NODEPROP_ACTUALQUALITY 
+        elif param_code_epyt == self.EN_DEMAND: js_param_code = self.JS_NODEPROP_ACTUALDEMAND 
+        elif param_code_epyt == self.EN_ELEVATION: js_param_code = self.JS_NODEPROP_ELEVATION
+        elif param_code_epyt == self.EN_BASEDEMAND: js_param_code = self.JS_NODEPROP_BASEDEMAND
+        elif param_code_epyt == self.EN_EMITTER: js_param_code = self.JS_NODEPROP_EMITTER # For getting emitter coeff, not typical
+        # Add other EPyT to epanet-js mappings here as needed
+        else: self.errcode = 1; return 0.0 # Unsupported param_code for getting
 
         try:
-            # epanet-js uses 0-based indexing
-            self.epanet_js_obj.setNodeValue(node_index - 1, js_param_code, float(value))
+            value_float = self.epanet_js_obj.getNodeValue(node_index_1_based - 1, js_param_code) # 0-based index
             self.errcode = 0
+            return float(value_float)
         except Exception as e:
-            # print(f"Python: ENsetnodevalue Error: {str(e)}")
-            self.errcode = 1
-        return self.errcode
-
-    def ENgetlinkvalue(self, link_index, param_code):
-        # print(f"Python: ENgetlinkvalue called for link index: {link_index}, param: {param_code}")
-        if self.epanet_js_obj is None:
             self.errcode = 1; return 0.0
 
-        js_param_code = param_code # Default if codes match
-        if param_code == 8: # Assuming EPyT uses 8 for Flow, which matches JS_LINKPROP_FLOW
-            js_param_code = self.JS_LINKPROP_FLOW
-        # Add other mappings if EPyT codes differ from epanet-js codes for links
-        # For example, if EPyT uses EN_STATUS = 10, map to JS_LINKPROP_STATUS = 3
+    def ENsetnodevalue(self, node_index_1_based, param_code_epyt, value_float):
+        """
+        Sets the value of a specific node parameter using EPyT/Toolkit param codes.
+        Handles mapping EPyT codes to epanet-js NodeProperty codes for settable parameters.
+        Args:
+            node_index_1_based (int): 1-based index of the node.
+            param_code_epyt (int): EPANET Toolkit constant for the parameter.
+            value_float (float): Value to set.
+        Returns:
+            int: Error code (0 if successful).
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
+        
+        js_param_code = -1 
+        if param_code_epyt == self.EN_EMITTER: js_param_code = self.JS_NODEPROP_EMITTER 
+        elif param_code_epyt == self.EN_BASEDEMAND: js_param_code = self.JS_NODEPROP_BASEDEMAND
+        elif param_code_epyt == self.EN_ELEVATION: js_param_code = self.JS_NODEPROP_ELEVATION
+        # Add other mappings for settable parameters
+        else: self.errcode = 1; return self.errcode # Unsupported param_code for setting
 
         try:
-            # epanet-js uses 0-based indexing
-            value = self.epanet_js_obj.getLinkValue(link_index - 1, js_param_code)
-            self.errcode = 0
-            return float(value)
-        except Exception as e:
-            # print(f"Python: ENgetlinkvalue Error: {str(e)}")
-            self.errcode = 1
-            return 0.0
-
-    # ENsetlinkvalue would follow a similar pattern to ENsetnodevalue with code mapping
-    # def ENsetlinkvalue(self, link_index, param_code, value): ...
-
-    def ENsetdemandmodel(self, model_type_int, pmin_float, preq_float, pexp_float):
-        # print(f"Python: ENsetdemandmodel called with type: {model_type_int}, Pmin: {pmin_float}, Preq: {preq_float}, Pexp: {pexp_float}")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
-        try:
-            # epanet-js setDemandModel(model: number, minPressure: number, reqPressure: number, exponent: number)
-            # model: 0 for DDA, 1 for PDA
-            self.epanet_js_obj.setDemandModel(int(model_type_int), float(pmin_float), float(preq_float), float(pexp_float))
+            self.epanet_js_obj.setNodeValue(node_index_1_based - 1, js_param_code, float(value_float)) # 0-based index
             self.errcode = 0
         except Exception as e:
-            # print(f"Python: ENsetdemandmodel Error: {str(e)}")
             self.errcode = 1
         return self.errcode
 
-    def ENsetqualtype(self, qualcode_int, chemname_str, chemunits_str, tracenode_str):
-        # print(f"Python: ENsetqualtype called with qualcode: {qualcode_int}, chemname: '{chemname_str}', chemunits: '{chemunits_str}', tracenode: '{tracenode_str}'")
-        if self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
-        try:
-            # Ensure tracenode_str is None if empty, as epanet-js might expect null/undefined for non-trace cases
-            # However, epanet-js setQualityType expects a string for traceNodeId. If it's not TRACE, it might ignore it.
-            # For safety, if qualcode is not TRACE, pass empty string, which epanet-js should handle.
-            effective_tracenode_str = tracenode_str if qualcode_int == self.EN_TRACE and tracenode_str else ""
+    def ENgetlinkvalue(self, link_index_1_based, param_code_epyt):
+        """
+        Retrieves the value of a specific link parameter using EPyT/Toolkit param codes.
+        Handles mapping EPyT codes to epanet-js LinkProperty codes.
+        Args:
+            link_index_1_based (int): 1-based index of the link.
+            param_code_epyt (int): EPANET Toolkit constant for the parameter.
+        Returns:
+            float: Value of the parameter, or 0.0 on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return 0.0
 
-            self.epanet_js_obj.setQualityType(int(qualcode_int), str(chemname_str), str(chemunits_str), str(effective_tracenode_str))
+        js_param_code = -1 
+        if param_code_epyt == self.EN_FLOW: js_param_code = self.JS_LINKPROP_FLOW # EPyT EN_FLOW is 8
+        elif param_code_epyt == self.EN_STATUS: js_param_code = self.JS_LINKPROP_ACTUALSTATUS # EPyT EN_STATUS is 10
+        # Add other mappings
+        else: self.errcode = 1; return 0.0 
+        
+        try:
+            value_float = self.epanet_js_obj.getLinkValue(link_index_1_based - 1, js_param_code) # 0-based index
             self.errcode = 0
+            return float(value_float)
         except Exception as e:
-            # print(f"Python: ENsetqualtype Error: {str(e)}")
-            self.errcode = 1
+            self.errcode = 1; return 0.0
+
+    def ENsetdemandmodel(self, model_type_int, pmin_float, preq_float, pexp_float):
+        """Sets the pressure-dependent demand (PDD) model and its parameters."""
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
+        try:
+            # epanet-js setDemandModel(model: number (0=DDA, 1=PDA), minPressure, reqPressure, exponent)
+            self.epanet_js_obj.setDemandModel(int(model_type_int), float(pmin_float), float(preq_float), float(pexp_float))
+            self.errcode = 0
+        except Exception as e: self.errcode = 1; 
+        return self.errcode
+
+    # --- Water Quality Simulation Functions ---
+    def ENsetqualtype(self, qualcode_int, chemname_str, chemunits_str, tracenode_id_str):
+        """
+        Sets the type of water quality analysis.
+        Args:
+            qualcode_int (int): Quality type code (EN_NONE, EN_AGE, EN_TRACE, EN_CHEM).
+            chemname_str (str): Name of the chemical (if qualcode is EN_CHEM).
+            chemunits_str (str): Units of the chemical (if qualcode is EN_CHEM).
+            tracenode_id_str (str): ID of the trace node (if qualcode is EN_TRACE).
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
+        try:
+            effective_tracenode_id_str = tracenode_id_str if qualcode_int == self.EN_TRACE and tracenode_id_str else ""
+            self.epanet_js_obj.setQualityType(int(qualcode_int), str(chemname_str), str(chemunits_str), str(effective_tracenode_id_str))
+            self.errcode = 0
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
     def ENopenQ(self):
+        """Opens the water quality analysis system."""
         if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
         try: self.epanet_js_obj.openQ(); self.errcode = 0
-        except Exception as e: self.errcode = 1; # print(f"ENopenQ Error: {e}")
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
     def ENinitQ(self, saveflag_int):
+        """
+        Initializes water quality analysis.
+        Args:
+            saveflag_int (int): 0 (NOSAVE) or 1 (SAVE results).
+        """
         if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
         try: 
-            # epanet-js initQ takes a boolean saveResults flag.
-            # EPANET API: 0 for NOSAVE, 1 for SAVE.
-            js_save_flag = True if saveflag_int == 1 else False
+            js_save_flag = True if saveflag_int == 1 else False 
             self.epanet_js_obj.initQ(js_save_flag)
             self.errcode = 0
-        except Exception as e: self.errcode = 1; # print(f"ENinitQ Error: {e}")
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
     def ENrunQ(self):
-        if self.epanet_js_obj is None: self.errcode = 1; return -1 # error, time is non-negative
+        """
+        Runs a single water quality step, advancing quality simulation time.
+        Returns:
+            float: Current simulation time in seconds for quality, or -1 on error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return -1 
         try: 
-            current_q_time = self.epanet_js_obj.runQ()
+            current_q_time_sec = self.epanet_js_obj.runQ()
             self.errcode = 0
-            return current_q_time
-        except Exception as e: self.errcode = 1; # print(f"ENrunQ Error: {e}"); 
-        return -1
+            return current_q_time_sec
+        except Exception as e: self.errcode = 1; return -1 
         
     def ENnextQ(self):
-        if self.epanet_js_obj is None: self.errcode = 1; return 0 # error, tstep usually >0
+        """
+        Determines the time until the next quality event.
+        Returns:
+            float: Time to next quality event in seconds, or 0 if no more events or error.
+        """
+        if self.epanet_js_obj is None: self.errcode = 1; return 0 
         try: 
-            time_to_next_q_event = self.epanet_js_obj.nextQ()
+            time_to_next_q_event_sec = self.epanet_js_obj.nextQ()
             self.errcode = 0
-            return time_to_next_q_event
-        except Exception as e: self.errcode = 1; # print(f"ENnextQ Error: {e}"); 
-        return 0
+            return time_to_next_q_event_sec
+        except Exception as e: self.errcode = 1; return 0 
 
     def ENcloseQ(self):
+        """Closes the water quality analysis system."""
         if self.epanet_js_obj is None: self.errcode = 1; return self.errcode
         try: self.epanet_js_obj.closeQ(); self.errcode = 0
-        except Exception as e: self.errcode = 1; # print(f"ENcloseQ Error: {e}")
+        except Exception as e: self.errcode = 1; 
         return self.errcode
 
     # The `ph` (Prolog/Headless) and `customlib` parameters are not used in this shim

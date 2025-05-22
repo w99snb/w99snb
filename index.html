@@ -7,8 +7,8 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
     <!-- epanet-js libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@model-create/epanet-engine@0.5.0/dist/epanet-engine.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/epanet-js@0.6.0/dist/epanet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@model-create/epanet-engine@0.7.0/dist/epanet-engine.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epanet-js@0.7.0/dist/epanet.js"></script>
     <style>
         body { 
             font-family: 'Roboto', sans-serif; /* Material Design font */
@@ -35,26 +35,35 @@
             margin-bottom: 20px;
             background-color: #fff; /* White background for graph */
         }
-        /* Basic MD3-like button styling */
+        /* Refined MD3-like button styling */
         .md-button {
-            background-color: #e8def8; /* Material Design secondary container */
-            color: #1d192b; /* On secondary container text color */
+            padding: 8px 16px; /* Standard padding */
+            border-radius: 16px; /* More pronounced rounded corners, closer to "pill" but not full */
             border: none;
-            padding: 10px 24px;
-            border-radius: 20px; /* Fully rounded corners for "pill" shape */
-            font-size: 0.875rem;
-            font-weight: 500;
-            text-transform: none; /* MD3 buttons often don't use uppercase */
             cursor: pointer;
-            transition: background-color 0.3s;
+            font-size: 0.875rem; /* 14px */
+            font-weight: 500; /* Medium weight */
+            text-transform: none; /* As per MD3 recommendation */
+            margin: 4px; /* Consistent margin */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 1px 1px rgba(0,0,0,0.06); /* Softer, more subtle shadow */
+            transition: all 0.2s cubic-bezier(.4,0,.2,1); /* Smoother transition */
+            background-color: #e8def8; /* Default: Material You secondary container */
+            color: #1d192b;    /* Default: On secondary container */
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-right: 8px; /* Spacing between buttons */
         }
         .md-button:hover {
-            background-color: #d0c8e0; /* Slightly darker on hover */
+            background-color: #d0c8e0; /* Darker shade for hover */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 2px 3px rgba(0,0,0,0.08); /* Slightly more pronounced shadow on hover */
         }
+        .md-button:disabled { /* Style for disabled buttons */
+            background-color: #e0e0e0; /* Lighter grey */
+            color: #a0a0a0; /* Muted text */
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
         #output { 
             margin-top: 15px; 
             padding: 12px; 
