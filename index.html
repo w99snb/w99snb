@@ -7,8 +7,8 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
     <!-- epanet-js libraries -->
-    <script src="https://unpkg.com/@model-create/epanet-engine@0.5.0/dist/epanet-engine.js"></script>
-    <script src="https://unpkg.com/epanet-js@0.6.0/dist/epanet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@model-create/epanet-engine@0.5.0/dist/epanet-engine.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epanet-js@0.6.0/dist/epanet.js"></script>
     <style>
         body { 
             font-family: 'Roboto', sans-serif; /* Material Design font */
@@ -85,14 +85,81 @@
             <span id="fileNameDisplay">No file selected.</span>
         </div>
         
-        <!-- Removed the old run_simulation_btn as loading and displaying is the primary action now -->
-        <!-- The simulation logic can be triggered after successful topology display if needed, or by another button -->
+        <div class="simulation-controls" style="margin-top: 15px; margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+            <button id="initStepSimBtn" class="md-button" disabled>Initialize Step Simulation</button>
+            <button id="runNextStepBtn" class="md-button" disabled>Run Next Hydraulic Step</button>
+            
+            <label for="leakNodeIdInput" style="margin-left: 20px;">Node ID for Leak:</label>
+            <input type="text" id="leakNodeIdInput" value="J2" style="width: 60px; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+            
+            <label for="emitterCoeffInput">Emitter Coeff:</label>
+            <input type="number" id="emitterCoeffInput" value="0.0" step="0.01" min="0" style="width: 70px; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+            
+            <button id="applyLeakBtn" class="md-button">Apply Leak Parameter</button>
+        </div>
+
+        <div class="pdd-settings" style="margin-top: 15px; margin-bottom: 15px; padding:10px; border: 1px solid #ddd; border-radius: 8px;">
+            <h3 style="margin-top:0; color: #386a20;">PDD Settings</h3>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <label for="pddEnableSwitch" class="md-label">Enable PDD:</label>
+                <input type="checkbox" id="pddEnableSwitch" style="height: 20px; width: 20px;">
+            </div>
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; align-items: center;">
+                <label for="pddPminInput" class="md-label">Min Pressure (Pmin):</label>
+                <input type="number" id="pddPminInput" value="0.5" step="0.1" class="md-input">
+                
+                <label for="pddPreqInput" class="md-label">Req. Pressure (Preq):</label>
+                <input type="number" id="pddPreqInput" value="20.0" step="1" class="md-input">
+                
+                <label for="pddPexpInput" class="md-label">Exponent (Pexp):</label>
+                <input type="number" id="pddPexpInput" value="0.5" step="0.05" class="md-input">
+            </div>
+            <button id="applyPddSettingsBtn" class="md-button" style="margin-top:10px;">Apply PDD Settings</button>
+            <div id="pddStatusDisplay" style="margin-top:10px; color: #386a20; font-weight: bold;">PDD Status: DDA (default)</div>
+        </div>
+
+        <div class="quality-settings" style="margin-top: 15px; margin-bottom: 15px; padding:10px; border: 1px solid #ddd; border-radius: 8px;">
+            <h3 style="margin-top:0; color: #386a20;">Water Quality Settings</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 10px;">
+                <div>
+                    <input type="radio" name="qualityType" value="NONE" id="qualityTypeNone" checked>
+                    <label for="qualityTypeNone">None</label>
+                </div>
+                <div>
+                    <input type="radio" name="qualityType" value="AGE" id="qualityTypeAge">
+                    <label for="qualityTypeAge">Age</label>
+                </div>
+                <div>
+                    <input type="radio" name="qualityType" value="TRACE" id="qualityTypeTrace">
+                    <label for="qualityTypeTrace">Trace</label>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label for="traceNodeIdInput" class="md-label">Trace Node ID:</label>
+                    <input type="text" id="traceNodeIdInput" class="md-input" style="width:80px;" disabled>
+                </div>
+            </div>
+            <button id="applyQualitySettingsBtn" class="md-button">Apply Quality Settings</button>
+            <div id="qualityStatusDisplay" style="margin-top:10px; color: #386a20; font-weight: bold;">Quality Status: None</div>
+        </div>
+
+        <div id="simulationStatus" style="margin-bottom: 10px; font-weight: bold;">Status: Load INP file.</div>
+        <div id="leakStatusDisplay" style="margin-bottom:10px; color: #386a20;">Leak Status: -</div>
+        <div id="output">Select an .INP file to display its topology.</div> <!-- This can be repurposed or kept for general messages -->
         
-        <div id="output">Select an .INP file to display its topology.</div>
+        <div class="simulation-outputs" style="margin-top: 10px; padding: 10px; border: 1px solid #eee; background-color: #f9f9f9; border-radius: 8px;">
+            <div id="currentTimeDisplay" style="margin-bottom: 5px;">Current Time: -</div>
+            <div id="nodePressureDisplay" style="margin-bottom: 5px;">Node Pressure (Node ID): -</div>
+            <div id="linkFlowDisplay" style="margin-bottom: 5px;">Link Flow (Link ID): -</div>
+            <div id="nodeQualityDisplay">Node Quality (-): -</div>
+        </div>
 
         <div id="cy"></div>
     </div>
-
+    <style>
+        /* Add simple styling for md-input and md-label for alignment if not already globally defined */
+        .md-input { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        .md-label { white-space: nowrap; }
+    </style>
     <script src="script.js"></script>
 </body>
 </html>
