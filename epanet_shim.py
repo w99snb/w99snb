@@ -38,22 +38,16 @@ class epanet:
         
         print(f"EPANET Shim: inp_content_str (first 500 chars): {inp_content_str[:500]}")
         
-        print("EPANET Shim: Cleaning inp_content_str...")
-        # Normalize newlines
-        inp_content_str = inp_content_str.replace('\r\n', '\n')
-        # Strip whitespace from each line and rebuild, then strip whole string
-        lines = [line.strip() for line in inp_content_str.split('\n')]
-        inp_content_str = '\n'.join(lines).strip()
-        # Remove any null characters just in case
-        inp_content_str = inp_content_str.replace('\x00', '')
-        print(f"EPANET Shim: Cleaned inp_content_str (first 500 chars): {inp_content_str[:500]}")
+        # String cleaning logic removed as per request.
         
         inp_content_bytes = inp_content_str.encode('utf-8')
         # Define report and output file names as byte strings for ENopen
         rpt_file_bytes = "report.rpt".encode('utf-8')
         out_file_bytes = "out.bin".encode('utf-8')
         
+        print("EPANET Shim: CALLING ENOPEN NOW")
         ret = self.api.ENopen(inp_content_bytes, rpt_file_bytes, out_file_bytes)
+        print(f"EPANET Shim: ENOPEN RETURNED {ret}")
         if ret != 0:
             raise RuntimeError(f"EPANET ENopen failed with code {ret}: {self.api.ENgeterror(ret)}")
         
