@@ -40,10 +40,13 @@ class epanet:
         
         # String cleaning logic removed as per request.
         
+        self.rpt_file = ""
+        self.out_file = ""
+        
         inp_content_bytes = inp_content_str.encode('utf-8')
         # Define report and output file names as byte strings for ENopen
-        rpt_file_bytes = "".encode('utf-8') # Changed to empty string
-        out_file_bytes = "".encode('utf-8') # Changed to empty string
+        rpt_file_bytes = self.rpt_file.encode('utf-8')
+        out_file_bytes = self.out_file.encode('utf-8')
         
         print("EPANET Shim: CALLING ENOPEN NOW")
         ret = self.api.ENopen(inp_content_bytes, rpt_file_bytes, out_file_bytes)
