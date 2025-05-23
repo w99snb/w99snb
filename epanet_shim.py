@@ -42,8 +42,8 @@ class epanet:
         
         inp_content_bytes = inp_content_str.encode('utf-8')
         # Define report and output file names as byte strings for ENopen
-        rpt_file_bytes = "report.rpt".encode('utf-8')
-        out_file_bytes = "out.bin".encode('utf-8')
+        rpt_file_bytes = "".encode('utf-8') # Changed to empty string
+        out_file_bytes = "".encode('utf-8') # Changed to empty string
         
         print("EPANET Shim: CALLING ENOPEN NOW")
         ret = self.api.ENopen(inp_content_bytes, rpt_file_bytes, out_file_bytes)
