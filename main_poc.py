@@ -2,6 +2,8 @@ print("Python: main_poc.py script started")
 from epanet_shim import epanet # Assuming epanet_shim.py is in the same Pyodide FS path
 from js import console # For logging to browser console
 
+MAIN_POC_PY_VERSION = "v_main_1"
+
 # This Python script (`main_poc.py`) serves as the bridge between the JavaScript UI
 # and the Python EPANET simulation logic (provided by `epanet_shim.py` and `epanetapi_shim.py`).
 # It defines functions that are directly callable from JavaScript via Pyodide.
@@ -248,3 +250,6 @@ def run_quality_step_js(node_id_to_get_quality):
         return {'error': f"Python: Error in run_quality_step_js: {str(e)}", 'currentTime': -1, 'quality': 0.0, 'nextQualityEventTime': 0, 'nodeId': str(node_id_to_get_quality)}
 
 console.log("Python: main_poc.py loaded and all functions defined for JS interaction.")
+
+def get_main_poc_version():
+    return MAIN_POC_PY_VERSION

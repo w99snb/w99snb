@@ -1,6 +1,8 @@
 print("Python: epanet_shim.py script started")
 import epanetapi_shim # The low-level shim for epanet-js
 
+EPANET_SHIM_PY_VERSION = "v_shim_1"
+
 # High-level Python class mimicking EPyT's `epanet` class interface.
 # This class provides a more user-friendly API for EPANET operations and
 # uses the `epanetapi_shim.epanetapi` class for actual interaction with epanet-js.
@@ -434,3 +436,6 @@ class epanet:
                 'currentTime': -1, 'nodeId': str(node_id_to_get_quality), 'quality': 0.0,
                 'nextQualityEventTime': 0, 'error': str(e)
             }
+
+def get_epanet_shim_version():
+    return EPANET_SHIM_PY_VERSION
