@@ -264,19 +264,7 @@ from main_poc import (
             runNextStepBtn.disabled = true;
         }
     }
-} catch (e) { // Catch for the try block starting with py_create_epanet_instance
-    console.error("JS: Error during py_create_epanet_instance call or its immediate aftermath:", e);
-    if (simulationStatusDiv) { // Check if element exists (it should)
-        simulationStatusDiv.textContent = "Error: Failed during EPANET instance creation/setup: " + e.toString();
-    }
-    // Also disable buttons if this core step fails
-    if(initStepSimBtn) initStepSimBtn.disabled = true;
-    if(runNextStepBtn) runNextStepBtn.disabled = true;
-    // Potentially update other UI elements to reflect the error state.
-    if(outputDiv) outputDiv.innerText = "Critical error setting up EPANET instance. See console.";
-    if (globalThis.cy_instance) globalThis.cy_instance.destroy();
-    if(cyContainer) cyContainer.innerHTML = '<p style="text-align:center; color:red;">EPANET Instance Failed. Cannot render network.</p>';
-}
+// The orphaned catch block that was here has been removed.
 
     // --- Event Listeners for File Loading ---
     loadInpBtn.addEventListener('click', () => { // Trigger hidden file input.
