@@ -1,3 +1,4 @@
+print("Python: epanet_shim.py script started")
 import epanetapi_shim # The low-level shim for epanet-js
 
 # High-level Python class mimicking EPyT's `epanet` class interface.

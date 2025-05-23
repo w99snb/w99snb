@@ -1,3 +1,4 @@
+print("Python: main_poc.py script started")
 from epanet_shim import epanet # Assuming epanet_shim.py is in the same Pyodide FS path
 from js import console # For logging to browser console
 
