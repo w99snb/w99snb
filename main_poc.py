@@ -50,6 +50,7 @@ def create_epanet_instance_from_inp(inp_content_str):
     if not inp_content_str or not inp_content_str.strip():
         raise ValueError("INP file content for instance creation is empty.")
     
+    inp_content_str = "[TITLE]\nMinimal Test\n[JUNCTIONS]\nJ1 0 0\n[PIPES]\n[END]"
     print(f"Main POC: inp_content_str (first 500 chars): {inp_content_str[:500]}")
     console.log("Python: Initializing new epanet_shim.epanet instance...")
     epanet_instance_py = epanet(inp_content_str=inp_content_str) # Creates and opens the model
