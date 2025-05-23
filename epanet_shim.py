@@ -33,10 +33,18 @@ class epanet:
             raise RuntimeError(f"Failed to initialize epanetapi_shim: {self.api.ENgeterror(self.api.errcode)}")
 
         # Open the model using the provided INP content string.
-        # The epanetapi_shim's ENopen expects the content directly.
-        ret = self.api.ENopen(self.InputFileContent, "report.rpt", "out.bin")
+        # The epanetapi_shim's ENopen expects byte strings.
+        
+        print(f"EPANET Shim: inp_content_str (first 500 chars): {inp_content_str[:500]}")
+        
+        inp_content_bytes = inp_content_str.encode('utf-8')
+        # Define report and output file names as byte strings for ENopen
+        rpt_file_bytes = "report.rpt".encode('utf-8')
+        out_file_bytes = "out.bin".encode('utf-8')
+        
+        ret = self.api.ENopen(inp_content_bytes, rpt_file_bytes, out_file_bytes)
         if ret != 0:
-            raise RuntimeError(f"EPANET ENopen failed: {self.api.ENgeterror(ret)}")
+            raise RuntimeError(f"EPANET ENopen failed with code {ret}: {self.api.ENgeterror(ret)}")
         
         # Initialize internal maps for ID to Index lookups (cached)
         self._node_id_to_index_map = {}
