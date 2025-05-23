@@ -6,9 +6,11 @@
     <title>EPANET Pyodide + Cytoscape PoC - Dynamic Load</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
-    <!-- epanet-js libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/@model-create/epanet-engine@0.7.0/dist/epanet-engine.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/epanet-js@0.7.0/dist/epanet.js"></script>
+    <!-- Pyodide -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script> 
+    <!-- EPANET-JS Libraries - UPDATED -->
+    <script src="https://cdn.jsdelivr.net/npm/@model-create/epanet-engine@0.8.0-alpha.5/dist/index.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/epanet-js@0.8.0-alpha.5/+esm"></script>
     <style>
         body { 
             font-family: 'Roboto', sans-serif; /* Material Design font */
@@ -169,6 +171,6 @@
         .md-input { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
         .md-label { white-space: nowrap; }
     </style>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script> 
 </body>
 </html>

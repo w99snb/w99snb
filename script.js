@@ -1,4 +1,5 @@
 // Main JavaScript file for the EPANET Web Simulator PoC
+import { Workspace, Project } from 'https://cdn.jsdelivr.net/npm/epanet-js@0.8.0-alpha.5/+esm';
 
 // Event listener for when the DOM is fully loaded.
 // Initializes Pyodide, epanet-js, UI elements, and event handlers.
@@ -83,13 +84,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             globalThis.pyodide = await loadPyodide();
             console.log("JS: Pyodide initialized.");
 
-            // Initialize epanet-js Workspace and Project, making them globally available for Python shims.
-            if (typeof epanetjs !== 'undefined' && epanetjs.Workspace && epanetjs.Project) {
-                globalThis.epanetJsWorkspace = new epanetjs.Workspace();
-                globalThis.epanetJsProject = new epanetjs.Project(globalThis.epanetJsWorkspace);
-                console.log("JS: epanet-js Workspace and Project initialized.");
-            } else {
-                throw new Error("epanet-js is not loaded or does not have Workspace/Project. Check index.html script tags.");
+            // Initialize epanet-js Workspace and Project using ES Module imports.
+            console.log("JS: Initializing epanet-js Workspace and Project...");
+            try {
+                globalThis.epanetJsWorkspace = new Workspace();
+                globalThis.epanetJsProject = new Project(globalThis.epanetJsWorkspace);
+                console.log("JS: epanet-js Workspace and Project initialized successfully.");
+            } catch (error) {
+                console.error("JS: Error initializing epanet-js Workspace/Project:", error);
+                if(document.getElementById('simulationStatus')) {
+                    document.getElementById('simulationStatus').textContent = 'Fatal Error: Could not initialize epanet-js libraries. ' + error.toString();
+                }
+                // Prevent further execution if these core libraries fail
+                throw error; 
             }
 
             // Fetch and load Python scripts into Pyodide's virtual file system.
@@ -157,8 +164,15 @@ from main_poc import (
         try {
             // Create/Re-create the EPANET instance in Python. This also closes any previous instance.
             let instance_msg_proxy = globalThis.py_create_epanet_instance(inp_content_str);
-            console.log(`JS: Python create_epanet_instance says: ${instance_msg_proxy.toString()}`);
-            instance_msg_proxy.destroy();
+            // It's good practice to check if the proxy is not null or undefined before using methods
+            if (instance_msg_proxy && typeof instance_msg_proxy.toString === 'function') {
+                console.log(`JS: Python create_epanet_instance says: ${instance_msg_proxy.toString()}`);
+            }
+            if (instance_msg_proxy && typeof instance_msg_proxy.destroy === 'function') {
+                instance_msg_proxy.destroy();
+            }
+            // Any other operations that depend on the successful creation of the instance 
+            // and were previously inside this try block (or meant to be) should remain here.
 
             // Get network topology from the newly created Python instance.
             let topology_js_proxy = globalThis.py_get_network_topology();
@@ -239,6 +253,19 @@ from main_poc import (
             runNextStepBtn.disabled = true;
         }
     }
+} catch (e) { // Catch for the try block starting with py_create_epanet_instance
+    console.error("JS: Error during py_create_epanet_instance call or its immediate aftermath:", e);
+    if (simulationStatusDiv) { // Check if element exists (it should)
+        simulationStatusDiv.textContent = "Error: Failed during EPANET instance creation/setup: " + e.toString();
+    }
+    // Also disable buttons if this core step fails
+    if(initStepSimBtn) initStepSimBtn.disabled = true;
+    if(runNextStepBtn) runNextStepBtn.disabled = true;
+    // Potentially update other UI elements to reflect the error state.
+    if(outputDiv) outputDiv.innerText = "Critical error setting up EPANET instance. See console.";
+    if (globalThis.cy_instance) globalThis.cy_instance.destroy();
+    if(cyContainer) cyContainer.innerHTML = '<p style="text-align:center; color:red;">EPANET Instance Failed. Cannot render network.</p>';
+}
 
     // --- Event Listeners for File Loading ---
     loadInpBtn.addEventListener('click', () => { // Trigger hidden file input.
