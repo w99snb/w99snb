@@ -14,8 +14,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Global Pyodide & EPANET-JS Instances ---
     // These are set in initializePyodideAndApp and used by various functions.
     globalThis.pyodide = null;                      // Pyodide instance
-    globalThis.epanetJsWorkspace = null;            // epanet-js Workspace instance
-    globalThis.epanetJsProject = null;              // epanet-js Project instance (the core model)
+    // globalThis.epanetJsWorkspace = null;         // Will be initialized in initializePyodideAndApp
+    // globalThis.epanetJsProject = null;           // Will be initialized in initializePyodideAndApp
 
     // --- Proxies for Python functions defined in main_poc.py ---
     // These allow JavaScript to call Python functions.
@@ -79,36 +79,43 @@ document.addEventListener('DOMContentLoaded', async () => {
      * sets up epanet-js, and imports Python functions into the global JavaScript scope.
      */
     async function initializePyodideAndApp() {
+        console.log("JS: Entered initializePyodideAndApp function.");
         simulationStatusDiv.textContent = "Status: Initializing Pyodide and EPANET tools...";
         try {
+            console.log("JS: Attempting to load Pyodide...");
             globalThis.pyodide = await loadPyodide();
-            console.log("JS: Pyodide initialized.");
+            console.log("JS: Pyodide initialized successfully.");
 
             // Initialize epanet-js Workspace and Project using ES Module imports.
-            console.log("JS: Initializing epanet-js Workspace and Project...");
+            console.log("JS: Attempting to initialize epanet-js Workspace and Project...");
             try {
                 globalThis.epanetJsWorkspace = new Workspace();
+                console.log("JS: epanet-js Workspace initialized successfully.");
                 globalThis.epanetJsProject = new Project(globalThis.epanetJsWorkspace);
-                console.log("JS: epanet-js Workspace and Project initialized successfully.");
+                console.log("JS: epanet-js Project initialized successfully using the workspace.");
             } catch (error) {
-                console.error("JS: Error initializing epanet-js Workspace/Project:", error);
-                if(document.getElementById('simulationStatus')) {
-                    document.getElementById('simulationStatus').textContent = 'Fatal Error: Could not initialize epanet-js libraries. ' + error.toString();
+                console.error("JS: Critical Error initializing epanet-js Workspace/Project:", error);
+                if(simulationStatusDiv) { // Check if element exists
+                    simulationStatusDiv.textContent = 'Fatal Error: Could not initialize epanet-js libraries. ' + error.toString();
                 }
+                if(loadInpBtn) loadInpBtn.disabled = true; // Disable file loading on critical error
                 // Prevent further execution if these core libraries fail
                 throw error; 
             }
 
             // Fetch and load Python scripts into Pyodide's virtual file system.
+            console.log("JS: Preparing to load Python scripts into Pyodide FS...");
             const scriptsToLoad = ['epanetapi_shim.py', 'epanet_shim.py', 'main_poc.py'];
             for (const scriptName of scriptsToLoad) {
                 const scriptContent = await (await fetch(scriptName)).text();
                 globalThis.pyodide.FS.writeFile(scriptName, scriptContent);
                 console.log(`JS: Loaded ${scriptName} into Pyodide FS.`);
             }
+            console.log("JS: All Python scripts loaded into Pyodide FS.");
             
             // Import all necessary Python functions from main_poc.py into global JS scope.
             // These functions interact with the Python-side EPANET instance.
+            console.log("JS: Attempting to run Python code to import main_poc.py functions...");
             globalThis.pyodide.runPython(`
 from main_poc import (
     create_epanet_instance_from_inp,
@@ -133,16 +140,20 @@ from main_poc import (
             globalThis.py_set_pdd_options = globalThis.pyodide.globals.get('set_pdd_options_js');
             globalThis.py_set_quality_type = globalThis.pyodide.globals.get('set_quality_type_js');
             globalThis.py_run_quality_step = globalThis.pyodide.globals.get('run_quality_step_js');
+            console.log("JS: Python functions from main_poc.py imported into global JS scope.");
             
             simulationStatusDiv.textContent = "Status: Ready to load .INP file.";
             outputDiv.innerText = "Pyodide, Python scripts, and epanet-js ready.";
-            console.log("JS: Python environment and functions ready.");
+            console.log("JS: initializePyodideAndApp completed successfully.");
 
         } catch (error) {
-            console.error("JS: Error during initialization:", error);
-            simulationStatusDiv.textContent = `Status: Initialization Error. Check console.`;
-            outputDiv.innerText = `Initialization Error: ${error.message}.`;
-            if(loadInpBtn) loadInpBtn.disabled = true; // Disable file loading if init fails
+            console.error("JS: Error during initializePyodideAndApp:", error);
+            if(simulationStatusDiv) simulationStatusDiv.textContent = `Status: Initialization Error. Check console.`;
+            if(outputDiv) outputDiv.innerText = `Initialization Error: ${error.message}.`;
+            if(loadInpBtn) {
+                console.log("JS: Disabling loadInpBtn due to initialization error.");
+                loadInpBtn.disabled = true; // Disable file loading if init fails
+            }
         }
     }
 
@@ -269,20 +280,31 @@ from main_poc import (
 
     // --- Event Listeners for File Loading ---
     loadInpBtn.addEventListener('click', () => { // Trigger hidden file input.
-        if (inpFileElement) inpFileElement.click();
+        console.log("JS: loadInpBtn clicked.");
+        if (inpFileElement) {
+            console.log("JS: Triggering click on inpFileElement.");
+            inpFileElement.click();
+        } else {
+            console.error("JS: inpFileElement not found.");
+        }
     });
 
     inpFileElement.addEventListener('change', (event) => { // Handle file selection.
+        console.log("JS: inpFileElement change event triggered.");
         const file = event.target.files[0];
         if (file) {
+            console.log(`JS: File selected: ${file.name}, type: ${file.type}, size: ${file.size} bytes.`);
             if (file.name.toLowerCase().endsWith('.inp')) { // Basic file type check.
                 fileNameDisplay.textContent = `Selected: ${file.name}`;
                 simulationStatusDiv.textContent = `Status: Reading file ${file.name}...`;
                 outputDiv.innerText = `Reading file: ${file.name}...`;
+                console.log(`JS: Reading file ${file.name} as text.`);
                 
                 const reader = new FileReader();
                 reader.onload = async (e) => { // File successfully read.
+                    console.log("JS: FileReader onload event triggered.");
                     const inp_content_str = e.target.result;
+                    console.log("JS: File content read successfully. Length:", inp_content_str.length);
                     await displayNetworkTopology(inp_content_str); // Process and display.
                 };
                 reader.onerror = (e_reader) => { // File reading error.
@@ -293,13 +315,15 @@ from main_poc import (
                 };
                 reader.readAsText(file); // Read file as plain text.
             } else { // Invalid file type.
+                console.warn(`JS: Invalid file type selected: ${file.name}. Expected .inp file.`);
                 alert("Please select a valid .INP file.");
                 simulationStatusDiv.textContent = "Status: Invalid file type.";
                 outputDiv.innerText = "Invalid file type. Please select an .INP file.";
                 fileNameDisplay.textContent = "No file selected.";
-                inpFileElement.value = ''; // Reset file input.
+                if (inpFileElement) inpFileElement.value = ''; // Reset file input.
             }
         } else {
+             console.log("JS: No file selected after change event (e.g., dialog cancelled).");
              fileNameDisplay.textContent = "No file selected."; // No file chosen.
         }
     });
