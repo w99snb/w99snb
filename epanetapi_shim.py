@@ -144,6 +144,14 @@ class epanetapi:
         try:
             # Decode inpfile_content_str from bytes to UTF-8 string
             self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str.decode('utf-8'))
+            try:
+                written_content = self.epanet_js_workspace.readFile("temp_model.inp")
+                print(f"Python [ENopen Investigation]: Content read back from virtual file (first 300 chars): {written_content[:300]}")
+                # Optional: Compare written_content with inpfile_content_str.decode('utf-8')
+                # if written_content != inpfile_content_str.decode('utf-8'):
+                #     print("Python [ENopen Investigation]: WARNING - Content read back differs from content written!")
+            except Exception as e_read:
+                print(f"Python [ENopen Investigation]: ERROR reading back temp_model.inp: {str(e_read)}")
             self.epanet_js_obj.open("temp_model.inp", rptfile_path_str, binfile_path_str)
             self.errcode = 0
         except Exception as e:
