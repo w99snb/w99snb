@@ -1,7 +1,7 @@
 from js import globalThis, Object, Error # Import Error for explicit error construction
 import js # Ensure full js module is available
 
-__epanetapi_shim_version__ = "1.0.4"
+__epanetapi_shim_version__ = "1.0.5"
 
 # Low-level Python shim for epanet-js library, mimicking EPANET C API function calls.
 # This class directly interacts with the epanet-js objects (epanetJsProject, epanetJsWorkspace)
@@ -143,9 +143,8 @@ class epanetapi:
             # print("Python: epanetapi_shim: ENopen error: epanetJsProject (self.epanet_js_obj) is None")
             return self.errcode
         try:
-            inp_content_uint8array = js.TextEncoder.new().encode(inpfile_content_str)
             print("Python [ENopen]: Attempting self.epanet_js_workspace.writeFile...")
-            self.epanet_js_workspace.writeFile("temp_model.inp", inp_content_uint8array)
+            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str)
             print("Python [ENopen]: self.epanet_js_workspace.writeFile successful.")
             try:
                 written_content = self.epanet_js_workspace.readFile("temp_model.inp")

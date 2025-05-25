@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // These are the versions you expect to be loaded.
     // You might update these as you deploy new versions of your Python files.
     const expectedFileVersions = {
-        'epanetapi_shim.py': '1.0.4',
+        'epanetapi_shim.py': '1.0.5',
         'epanet_shim.py': '1.0.3',
         'main_poc.py': '1.0.4'
     };
