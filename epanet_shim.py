@@ -24,6 +24,7 @@ class epanet:
             TypeError: If inp_content_str is not a string.
             RuntimeError: If the underlying epanetapi_shim fails to initialize or open the INP file.
         """
+        print(f"Python: epanet_shim.py version {__epanet_shim_version__} loaded.")
         # print("Python: epanet_shim: __init__ called.")
         if not isinstance(inp_content_str, str):
             raise TypeError("inp_content_str must be a string containing the INP file data.")

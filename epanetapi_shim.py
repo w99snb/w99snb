@@ -1,6 +1,6 @@
 from js import globalThis, Object, Error # Import Error for explicit error construction
 
-__epanetapi_shim_version__ = "1.0.1"
+__epanetapi_shim_version__ = "1.0.2"
 
 # Low-level Python shim for epanet-js library, mimicking EPANET C API function calls.
 # This class directly interacts with the epanet-js objects (epanetJsProject, epanetJsWorkspace)
@@ -142,8 +142,9 @@ class epanetapi:
             # print("Python: epanetapi_shim: ENopen error: epanetJsProject (self.epanet_js_obj) is None")
             return self.errcode
         try:
-            # Decode inpfile_content_str from bytes to UTF-8 string
-            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str.decode('utf-8'))
+            print("Python [ENopen]: Attempting self.epanet_js_workspace.writeFile...")
+            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str)
+            print("Python [ENopen]: self.epanet_js_workspace.writeFile successful.")
             try:
                 written_content = self.epanet_js_workspace.readFile("temp_model.inp")
                 print(f"Python [ENopen Investigation]: Content read back from virtual file (first 300 chars): {written_content[:300]}")
@@ -152,10 +153,12 @@ class epanetapi:
                 #     print("Python [ENopen Investigation]: WARNING - Content read back differs from content written!")
             except Exception as e_read:
                 print(f"Python [ENopen Investigation]: ERROR reading back temp_model.inp: {str(e_read)}")
+            print("Python [ENopen]: Attempting self.epanet_js_obj.open...")
             self.epanet_js_obj.open("temp_model.inp", rptfile_path_str, binfile_path_str)
+            print("Python [ENopen]: self.epanet_js_obj.open successful.")
             self.errcode = 0
         except Exception as e:
-            # print(f"Python: epanetapi_shim: Error in ENopen during writeFile/open: {str(e)}")
+            print(f"Python [ENopen]: Exception caught in ENopen: {type(e).__name__}: {str(e)}")
             self.errcode = 1 # General error during open/write
         return self.errcode
 
