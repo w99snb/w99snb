@@ -1,6 +1,9 @@
 print("Python: main_poc.py script started")
 from epanet_shim import epanet # Assuming epanet_shim.py is in the same Pyodide FS path
 from js import console # For logging to browser console
+# Import actual version strings from the shim files
+from epanetapi_shim import __epanetapi_shim_version__
+from epanet_shim import __epanet_shim_version__
 
 MAIN_POC_PY_VERSION = "v_main_1"
 
@@ -18,8 +21,8 @@ epanet_instance_py = None
 
 # Define actual versions of your Python files
 # These should be updated whenever you change a file
-__epanetapi_shim_version__ = "1.0.0"
-__epanet_shim_version__ = "1.0.1"
+# __epanetapi_shim_version__ = "1.0.0" # Now imported
+# __epanet_shim_version__ = "1.0.1" # Now imported
 __main_poc_version__ = "1.0.2" # Example version for main_poc.py
 
 def get_epanetapi_shim_version_actual():

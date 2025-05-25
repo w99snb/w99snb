@@ -188,7 +188,7 @@ from main_poc import (
                         if (versionGetter) {
                             let versionProxy = versionGetter();
                             actualVersion = versionProxy.toString();
-                            versionProxy.destroy(); // Clean up proxy
+                            // versionProxy.destroy(); // Clean up proxy - Removed as direct string returns don't need it
                         } else {
                              console.warn(`JS: Version getter for ${scriptName} not found or not imported.`);
                              actualVersion = "Getter N/A";

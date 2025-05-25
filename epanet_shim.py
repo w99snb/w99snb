@@ -1,7 +1,8 @@
 print("Python: epanet_shim.py script started")
 import epanetapi_shim # The low-level shim for epanet-js
 
-EPANET_SHIM_PY_VERSION = "v_shim_1"
+__epanet_shim_version__ = "1.0.1"
+EPANET_SHIM_PY_VERSION = "v_shim_1" #TODO: This seems like an old version string, consider removing or reconciling
 
 # High-level Python class mimicking EPyT's `epanet` class interface.
 # This class provides a more user-friendly API for EPANET operations and

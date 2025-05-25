@@ -1,5 +1,7 @@
 from js import globalThis, Object, Error # Import Error for explicit error construction
 
+__epanetapi_shim_version__ = "1.0.0"
+
 # Low-level Python shim for epanet-js library, mimicking EPANET C API function calls.
 # This class directly interacts with the epanet-js objects (epanetJsProject, epanetJsWorkspace)
 # made available on the global JavaScript scope (globalThis).
@@ -131,14 +133,22 @@ class epanetapi:
         Returns:
             int: Error code (0 if successful).
         """
-        if self.epanet_js_workspace is None or self.epanet_js_obj is None:
-            self.errcode = 1; return self.errcode
+        if self.epanet_js_workspace is None:
+            self.errcode = 101 # Custom error code for missing workspace
+            # print("Python: epanetapi_shim: ENopen error: epanetJsWorkspace is None")
+            return self.errcode
+        if self.epanet_js_obj is None:
+            self.errcode = 102 # Custom error code for missing project object
+            # print("Python: epanetapi_shim: ENopen error: epanetJsProject (self.epanet_js_obj) is None")
+            return self.errcode
         try:
-            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str)
+            # Decode inpfile_content_str from bytes to UTF-8 string
+            self.epanet_js_workspace.writeFile("temp_model.inp", inpfile_content_str.decode('utf-8'))
             self.epanet_js_obj.open("temp_model.inp", rptfile_path_str, binfile_path_str)
             self.errcode = 0
         except Exception as e:
-            self.errcode = 1 
+            # print(f"Python: epanetapi_shim: Error in ENopen during writeFile/open: {str(e)}")
+            self.errcode = 1 # General error during open/write
         return self.errcode
 
     def ENsolveH(self):
@@ -203,9 +213,13 @@ class epanetapi:
         """
         current_err_to_report = self.errcode if self.errcode !=0 else errcode_val_int
         if current_err_to_report == 0: return "No error."
-        if current_err_to_report == -1: return "EPANET Shim: Initialization failed (epanet-js objects not found)."
-        # epanet-js usually throws JS Errors, direct EPANET error codes might not be set often.
-        return f"EPANET Shim: An error occurred (code {current_err_to_report}). Operation may have failed."
+        if current_err_to_report == -1: return "EPANET Shim: Initialization failed (Python-side epanet-js objects not found)."
+        if current_err_to_report == 1: return f"EPANET Shim: Error (code 1). This may be due to an issue writing or opening the temporary INP file, potentially an invalid INP format or content encoding problem."
+        if current_err_to_report == 101: return "EPANET Shim: Critical error - epanetJsWorkspace (JS) is not available to the Python shim."
+        if current_err_to_report == 102: return "EPANET Shim: Critical error - epanetJsProject (JS) is not available to the Python shim."
+        # epanet-js usually throws JS Errors, direct EPANET error codes might not be set often from the wasm lib itself.
+        # Other error codes are typically from the epanet-js library directly.
+        return f"EPANET Shim: An epanet-js related error occurred (code {current_err_to_report}). Operation may have failed."
 
     def ENgetnodeid(self, node_index_1_based):
         """
