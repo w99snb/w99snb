@@ -1,7 +1,7 @@
 print("Python: epanet_shim.py script started")
 import epanetapi_shim # The low-level shim for epanet-js
 
-__epanet_shim_version__ = "1.0.3"
+__epanet_shim_version__ = "1.0.4"
 EPANET_SHIM_PY_VERSION = "v_shim_1" #TODO: This seems like an old version string, consider removing or reconciling
 
 # High-level Python class mimicking EPyT's `epanet` class interface.
@@ -44,8 +44,8 @@ class epanet:
         
         # String cleaning logic removed as per request.
         
-        self.rpt_file = ""
-        self.out_file = ""
+        self.rpt_file = "report.rpt"
+        self.out_file = "out.bin"
         
         # Sanitize INP file content
         lines = inp_content_str.splitlines()
@@ -61,13 +61,14 @@ class epanet:
         # Add a print statement to log the sanitized content for verification (optional, for debugging)
         # print(f"EPANET Shim: Sanitized inp_content_str (first 500 chars): {inp_content_str[:500]}")
         
-        inp_content_bytes = inp_content_str.encode('utf-8')
-        # Define report and output file names as byte strings for ENopen
-        rpt_file_bytes = self.rpt_file.encode('utf-8')
-        out_file_bytes = self.out_file.encode('utf-8')
+        # inp_content_str is already the sanitized string, ready for the shim
+        # which now expects a string for inpfile_content_str.
         
         print("EPANET Shim: CALLING ENOPEN NOW")
-        ret = self.api.ENopen(inp_content_bytes, rpt_file_bytes, out_file_bytes)
+        # Pass the INP content string directly, and self.rpt_file, self.out_file as strings.
+        # The epanetapi_shim's ENopen now expects string paths for rpt and out files,
+        # and will handle any necessary encoding or type conversion for inp_content_str itself.
+        ret = self.api.ENopen(inp_content_str, self.rpt_file, self.out_file)
         print(f"EPANET Shim: ENOPEN RETURNED {ret}")
         if ret != 0:
             raise RuntimeError(f"EPANET ENopen failed with code {ret}: {self.api.ENgeterror(ret)}")

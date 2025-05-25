@@ -1,7 +1,7 @@
 from js import globalThis, Object, Error # Import Error for explicit error construction
 import js # Ensure full js module is available
 
-__epanetapi_shim_version__ = "1.0.6"
+__epanetapi_shim_version__ = "1.0.7"
 
 # Low-level Python shim for epanet-js library, mimicking EPANET C API function calls.
 # This class directly interacts with the epanet-js objects (epanetJsProject, epanetJsWorkspace)
@@ -153,12 +153,67 @@ class epanetapi:
             print("Python [ENopen]: self.epanet_js_workspace.writeFile successful.")
             try:
                 written_content = self.epanet_js_workspace.readFile("temp_model.inp")
-                print(f"Python [ENopen Investigation]: Content read back from virtual file (first 300 chars): {written_content[:300]}")
-                # Optional: Compare written_content with inpfile_content_str.decode('utf-8')
-                # if written_content != inpfile_content_str.decode('utf-8'):
-                #     print("Python [ENopen Investigation]: WARNING - Content read back differs from content written!")
+                print(f"Python [ENopen Investigation]: Type of written_content from readFile: {type(written_content)}")
+                actual_content_read_for_log = ""
+                if isinstance(written_content, bytes):
+                    try:
+                        actual_content_read_for_log = written_content.decode('utf-8')
+                        print(f"Python [ENopen Investigation]: readFile returned bytes. Decoded as UTF-8 (first 300 chars): {actual_content_read_for_log[:300]}")
+                    except UnicodeDecodeError:
+                        # Log the error and a representation of the bytes if decoding fails
+                        print(f"Python [ENopen Investigation]: readFile returned bytes, BUT COULD NOT DECODE as UTF-8. Raw bytes (first 100): {written_content[:100]}")
+                        actual_content_read_for_log = str(written_content) # Fallback to string representation of bytes
+                elif isinstance(written_content, str):
+                    actual_content_read_for_log = written_content
+                    print(f"Python [ENopen Investigation]: readFile returned str. Content (first 300 chars): {actual_content_read_for_log[:300]}")
+                else:
+                    print(f"Python [ENopen Investigation]: readFile returned an UNEXPECTED TYPE: {type(written_content)}. Content (first 300 as str): {str(written_content)[:300]}")
+                    actual_content_read_for_log = str(written_content)
+
+                # Assuming 'normalized_inp_content' is the variable holding the string content that was written
+                # by the self.epanet_js_workspace.writeFile() call earlier in the ENopen method.
+                # This variable should have been created by the line-ending normalization step.
+                if 'normalized_inp_content' in locals() or 'normalized_inp_content' in globals():
+                    if normalized_inp_content != actual_content_read_for_log:
+                        print("Python [ENopen Investigation]: WARNING - Content read back DIFFERS from the 'normalized_inp_content' that was written!")
+                        # For detailed debugging, one might log more, but this is a start.
+                        # print(f"DEBUG Expected (normalized_inp_content, first 300): {normalized_inp_content[:300]}")
+                        # print(f"DEBUG Actual (actual_content_read_for_log, first 300): {actual_content_read_for_log[:300]}")
+                    else:
+                        print("Python [ENopen Investigation]: Content read back matches 'normalized_inp_content' written.")
+                else:
+                    print("Python [ENopen Investigation]: 'normalized_inp_content' not found to compare with read back content. Skipping comparison.")
             except Exception as e_read:
                 print(f"Python [ENopen Investigation]: ERROR reading back temp_model.inp: {str(e_read)}")
+            
+            # DEBUG: Test with a minimal INP to isolate EPANET Error 223
+            minimal_inp_str = "[TITLE]\nMinimal Test for ENopen\n[JUNCTIONS]\nJ1 0 0\n[PIPES]\n[END]\n"
+            # Ensure CRLF line endings for this known minimal string
+            minimal_inp_crlf = minimal_inp_str.replace('\r\n', '\n').replace('\n', '\r\n')
+            minimal_inp_filename = "minimal_debug.inp"
+            debug_rpt_file = "debug_report.rpt" # Use distinct report/out files for this test
+            debug_bin_file = "debug_out.bin"
+
+            print(f"Python [ENopen DEBUG]: Writing minimal INP to '{minimal_inp_filename}':\n{minimal_inp_crlf[:100]}...") # Log first 100 chars
+            try:
+                # Assuming self.epanet_js_workspace is available and initialized
+                self.epanet_js_workspace.writeFile(minimal_inp_filename, minimal_inp_crlf)
+                print(f"Python [ENopen DEBUG]: Successfully wrote '{minimal_inp_filename}'.")
+                
+                print(f"Python [ENopen DEBUG]: Attempting to open '{minimal_inp_filename}' with epanet-js project...")
+                self.epanet_js_obj.open(minimal_inp_filename, debug_rpt_file, debug_bin_file)
+                # If open is successful, ENsolveH is often the next step to fully validate.
+                # For now, just opening is enough for this specific debug test.
+                print(f"Python [ENopen DEBUG]: SUCCESSFULLY opened '{minimal_inp_filename}'!")
+                
+                # Optional: try a simple operation like getting node count if open succeeded
+                # node_count = self.epanet_js_obj.getNodeCount() # Example, actual method might differ
+                # print(f"Python [ENopen DEBUG]: Node count from minimal file: {node_count}")
+
+            except Exception as e_minimal:
+                print(f"Python [ENopen DEBUG]: ERROR during minimal INP test for '{minimal_inp_filename}': {type(e_minimal).__name__}: {str(e_minimal)}")
+            # END DEBUG Block
+            
             print("Python [ENopen]: Attempting self.epanet_js_obj.open...")
             self.epanet_js_obj.open("temp_model.inp", rptfile_path_str, binfile_path_str)
             print("Python [ENopen]: self.epanet_js_obj.open successful.")

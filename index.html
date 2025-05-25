@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EPANET Web Sim v1.1</title>
+    <title>EPANET Web Sim v1.2</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
     <!-- Pyodide -->
@@ -90,6 +90,12 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="site.webmanifest">
+    <script>
+      const scriptTag = document.createElement('script');
+      scriptTag.type = 'module'; // Ensure 'module' type is preserved if it was used before
+      scriptTag.src = `script.js?v=${Date.now()}`;
+      document.head.appendChild(scriptTag); // Or document.body.appendChild(scriptTag) if that's more appropriate for where scripts are loaded. Let's default to head.
+    </script>
 </head>
 <body>
     <div id="fileVersions">Loading file version info...</div>
@@ -178,6 +184,6 @@
         .md-input { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
         .md-label { white-space: nowrap; }
     </style>
-    <script type="module" src="script.js?v=1.1"></script> 
+    
 </body>
 </html>
