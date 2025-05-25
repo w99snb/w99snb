@@ -11,6 +11,27 @@ from js import console # For logging to browser console
 # This instance is created/updated when a new INP file is loaded.
 epanet_instance_py = None
 
+# In main_poc.py
+
+# Define actual versions of your Python files
+# These should be updated whenever you change a file
+__epanetapi_shim_version__ = "1.0.0"
+__epanet_shim_version__ = "1.0.1"
+__main_poc_version__ = "1.0.2" # Example version for main_poc.py
+
+def get_epanetapi_shim_version_actual():
+    return __epanetapi_shim_version__
+
+def get_epanet_shim_version_actual():
+    return __epanet_shim_version__
+
+def get_main_poc_version_actual():
+    return __main_poc_version__
+
+# Make sure to include these in the 'export_functions' if you have such a mechanism,
+# or ensure they are in the global scope if using pyodide.globals.get directly on them.
+# For the provided script.js structure, they need to be importable.
+
 def create_epanet_instance_from_inp(inp_content_str):
     """
     (Called from JavaScript)
