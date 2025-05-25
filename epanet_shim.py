@@ -188,6 +188,8 @@ class epanet:
 
             links_data.append({'id': link_id, 'source': source_node_id, 'target': target_node_id})
             
+        print(f"Python [Phase 1 - epanet_shim]: Nodes data to be returned: {nodes_data}")
+        print(f"Python [Phase 1 - epanet_shim]: Links data to be returned: {links_data}")
         return {'nodes': nodes_data, 'links': links_data}
 
     def setNodeEmitterCoeff(self, node_index_1_based, emitter_coeff_float):

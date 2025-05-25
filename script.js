@@ -243,6 +243,7 @@ from main_poc import (
         outputDiv.innerText = "Creating EPANET instance and extracting topology...";
 
         try {
+            console.log('JS [Phase 1]: Raw INP content being sent to Python:', inp_content_str);
             let instance_msg_proxy = globalThis.py_create_epanet_instance(inp_content_str);
             if (instance_msg_proxy && typeof instance_msg_proxy.toString === 'function') {
                 console.log(`JS: Python create_epanet_instance says: ${instance_msg_proxy.toString()}`);
@@ -253,6 +254,7 @@ from main_poc import (
 
             let topology_js_proxy = globalThis.py_get_network_topology();
             let topology = topology_js_proxy.toJs({ dict_converter: Object.fromEntries }); 
+            console.log('JS [Phase 1]: Topology object received from Python:', JSON.stringify(topology, null, 2));
             topology_js_proxy.destroy();
             console.log("JS: Topology received from Python:", topology);
 
@@ -274,9 +276,12 @@ from main_poc import (
 
             const elements = [];
             topology.nodes.forEach(node => {
+                const xVal = parseFloat(node.x);
+                const yVal = parseFloat(node.y);
+                console.log(`JS [Phase 1]: Node ${node.id} coords from Python: x=${node.x}, y=${node.y}. Parsed: x=${xVal}, y=${yVal}`);
                 elements.push({ 
                     data: { id: node.id, type: node.type, type_code: node.type_code }, 
-                    position: { x: parseFloat(node.x) || 0, y: parseFloat(node.y) || 0 } 
+                    position: { x: xVal || 0, y: yVal || 0 } 
                 });
             });
             topology.links.forEach(link => {

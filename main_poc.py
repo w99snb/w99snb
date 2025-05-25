@@ -49,6 +49,7 @@ def create_epanet_instance_from_inp(inp_content_str):
         str: A success or error message string.
     """
     global epanet_instance_py
+    print(f"Python [Phase 1]: Received INP (first 300 chars): {inp_content_str[:300]}")
     console.log("Python (main_poc.py): create_epanet_instance_from_inp called.")
     
     # Gracefully close any existing instance and its analyses
@@ -80,6 +81,10 @@ def create_epanet_instance_from_inp(inp_content_str):
     print(f"Main POC: inp_content_str (first 500 chars): {inp_content_str[:500]}")
     console.log("Python: Initializing new epanet_shim.epanet instance...")
     epanet_instance_py = epanet(inp_content_str=inp_content_str) # Creates and opens the model
+    if epanet_instance_py:
+        print(f"Python [Phase 1]: epanet_instance_py created successfully. Version: {epanet_instance_py.getVersion()}")
+    else:
+        print("Python [Phase 1]: ERROR - epanet_instance_py is None after creation attempt.")
     console.log(f"Python: New EPANET instance created. Version: {epanet_instance_py.getVersion()}")
     return "Python: EPANET instance created successfully."
 

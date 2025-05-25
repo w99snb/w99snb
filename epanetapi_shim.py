@@ -232,6 +232,7 @@ class epanetapi:
         if self.epanet_js_obj is None: self.errcode = 1; return ""
         try:
             node_id_str = self.epanet_js_obj.getNodeId(node_index_1_based - 1) # 0-based for epanet-js
+            print(f"Python [Phase 1 - epanetapi_shim]: ENgetnodeid for 0-based index {node_index_1_based - 1}. JS returned ID: {node_id_str}")
             self.errcode = 0
             return node_id_str
         except Exception as e:
@@ -248,6 +249,7 @@ class epanetapi:
         if self.epanet_js_obj is None: self.errcode = 1; return (0.0, 0.0)
         try:
             coords_obj = self.epanet_js_obj.getNodeCoordinates(node_index_1_based - 1) # 0-based
+            print(f"Python [Phase 1 - epanetapi_shim]: ENgetcoord for 0-based index {node_index_1_based - 1}. JS returned: x={coords_obj.x if coords_obj else 'N/A'}, y={coords_obj.y if coords_obj else 'N/A'}")
             if coords_obj and hasattr(coords_obj, 'x') and hasattr(coords_obj, 'y'):
                 self.errcode = 0
                 return (float(coords_obj.x), float(coords_obj.y))
