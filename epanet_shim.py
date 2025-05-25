@@ -46,6 +46,21 @@ class epanet:
         self.rpt_file = ""
         self.out_file = ""
         
+        # Sanitize INP file content
+        lines = inp_content_str.splitlines()
+        sanitized_lines = []
+        for line in lines:
+            # Normalize line endings (already handled by splitlines, but good for clarity)
+            # Trim leading/trailing whitespace from each line
+            sanitized_line = line.strip()
+            sanitized_lines.append(sanitized_line)
+        # Reconstruct the content, ensuring newline characters are '
+'
+        inp_content_str = "\n".join(sanitized_lines)
+
+        # Add a print statement to log the sanitized content for verification (optional, for debugging)
+        # print(f"EPANET Shim: Sanitized inp_content_str (first 500 chars): {inp_content_str[:500]}")
+        
         inp_content_bytes = inp_content_str.encode('utf-8')
         # Define report and output file names as byte strings for ENopen
         rpt_file_bytes = self.rpt_file.encode('utf-8')
