@@ -81,9 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // These are the versions you expect to be loaded.
     // You might update these as you deploy new versions of your Python files.
     const expectedFileVersions = {
-        'epanetapi_shim.py': '1.0.2',
-        'epanet_shim.py': '1.0.2',
-        'main_poc.py': '1.0.3' // Make sure this matches the version in main_poc.py
+        'epanetapi_shim.py': '1.0.3',
+        'epanet_shim.py': '1.0.3',
+        'main_poc.py': '1.0.4'
     };
 
     /**
@@ -100,10 +100,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             globalThis.pyodide = await loadPyodide();
             console.log("JS: Pyodide initialized successfully.");
 
-            console.log("JS: Attempting to initialize epanet-js Workspace and Project...");
+            // console.log("JS: Attempting to initialize epanet-js Workspace and Project..."); // Old log
+            console.log("JS: Attempting to initialize epanet-js Workspace...");
             try {
                 globalThis.epanetJsWorkspace = new Workspace();
-                console.log("JS: epanet-js Workspace initialized successfully.");
+                console.log("JS: epanet-js Workspace instantiated. Attempting to load WASM module...");
+                
+                // Load the EPANET WASM module
+                await globalThis.epanetJsWorkspace.loadModule(); // This is the new crucial line
+                console.log("JS: epanet-js WASM module loaded successfully.");
+
+                // Now that the module is loaded, initialize the Project
+                console.log("JS: Attempting to initialize epanet-js Project...");
                 globalThis.epanetJsProject = new Project(globalThis.epanetJsWorkspace);
                 console.log("JS: epanet-js Project initialized successfully using the workspace.");
             } catch (error) {
