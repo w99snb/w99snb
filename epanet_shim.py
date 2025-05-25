@@ -54,8 +54,7 @@ class epanet:
             # Trim leading/trailing whitespace from each line
             sanitized_line = line.strip()
             sanitized_lines.append(sanitized_line)
-        # Reconstruct the content, ensuring newline characters are '
-'
+        # Reconstruct the content, ensuring newline characters are '\n'
         inp_content_str = "\n".join(sanitized_lines)
 
         # Add a print statement to log the sanitized content for verification (optional, for debugging)
