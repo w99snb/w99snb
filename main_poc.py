@@ -23,7 +23,7 @@ epanet_instance_py = None
 # These should be updated whenever you change a file
 # __epanetapi_shim_version__ = "1.0.0" # Now imported
 # __epanet_shim_version__ = "1.0.1" # Now imported
-__main_poc_version__ = "1.0.2" # Example version for main_poc.py
+__main_poc_version__ = "1.0.3" # Example version for main_poc.py
 
 def get_epanetapi_shim_version_actual():
     return __epanetapi_shim_version__

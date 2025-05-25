@@ -1,6 +1,6 @@
 from js import globalThis, Object, Error # Import Error for explicit error construction
 
-__epanetapi_shim_version__ = "1.0.0"
+__epanetapi_shim_version__ = "1.0.1"
 
 # Low-level Python shim for epanet-js library, mimicking EPANET C API function calls.
 # This class directly interacts with the epanet-js objects (epanetJsProject, epanetJsWorkspace)
